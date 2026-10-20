@@ -1,0 +1,13 @@
+{
+  "expo": {
+    "name": "District OS",
+    "slug": "district-operating-system",
+    "version": "1.0.0",
+    "orientation": "default",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}
