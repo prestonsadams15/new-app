@@ -27,7 +27,6 @@ import {
   HeartPulse,
   Home,
   LayoutDashboard,
-  MessageCircle,
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
@@ -37,28 +36,36 @@ import {
   Users,
   UserRoundCheck,
   UserRoundSearch,
-  WalletCards,
   X,
 } from 'lucide-react-native';
-import { CommunicationCenter } from './CommunicationWorkflows';
+import { CommunityFeed, DirectMessaging, EmergencyBroadcast } from './CommunicationWorkflows';
 import { InstructionWorkspace } from './InstructionWorkspace';
 import { LessonPlannerWorkspace } from './LessonPlannerWorkspace';
-import { SpecialEducationWorkspace } from './SpecialEducationWorkspace';
+import { SpecialEducationWorkspace, type SpecialEdSection } from './SpecialEducationWorkspace';
 import { ClassroomSeatingWorkspace } from './ClassroomSeatingWorkspace';
 import { ReunificationWorkspace, VisitorScreeningWorkspace } from './SafetyOperationsWorkspace';
 import { UnifiedGradebookWorkspace, type ViewId as GradebookViewId } from './UnifiedGradebookWorkspace';
-import { StudentInformationWorkspace } from './StudentInformationWorkspace';
-import { BehaviorRewardsWorkspace } from './BehaviorRewardsWorkspace';
+import { StudentInformationWorkspace, type SisTab } from './StudentInformationWorkspace';
+import { BehaviorRewardsWorkspace, type BehaviorTab } from './BehaviorRewardsWorkspace';
 import { EmergencyCommandWorkspace } from './EmergencyCommandWorkspace';
-import { ClassroomKioskWorkspace } from './ClassroomKioskWorkspace';
-import { K12SchedulingEngine } from './K12SchedulingEngine';
+import { ClassroomKioskWorkspace, type KioskViewTab } from './ClassroomKioskWorkspace';
+import { K12SchedulingEngine, type SchedulingTier } from './K12SchedulingEngine';
 import { PrivacyComplianceWorkspace } from './PrivacyComplianceWorkspace';
 import { supabase } from './lib/supabase';
-import { primarySections, visibleSectionsForRoles, visibleTabsForRoles, type PrimarySectionId } from './Layout';
+import { setDocumentTitle, sameRoute, useHashRoute, type Route } from './lib/routing';
+import {
+  OVERVIEW_TAB_ID,
+  hubFor,
+  hubs,
+  sectionsForHub,
+  visibleSectionsForRoles,
+  visibleTabsForRoles,
+  type PrimarySection,
+  type PrimarySectionId,
+} from './Layout';
 import { SubNavHeader } from './SubNavHeader';
+import { HubBreakdown, ModuleBlueprint, SectionOverview } from './SiteMapPages';
 
- type OperationalHub = 'Classroom Hub' | 'Safety & Behavior Hub' | 'District Operations Hub';
- type Hub = 'Overview' | OperationalHub;
 type KioskPath = 'Student checkout' | 'Visitor or volunteer' | 'Substitute teacher' | 'District personnel' | 'Hourly staff';
 const palette = {
   ink: '#182820', muted: '#758078', canvas: '#f5f6f2', paper: '#ffffff', line: '#e6e9e3',
@@ -74,88 +81,28 @@ const students = [
   { name: 'Noah Williams', grade: 'Kindergarten', room: 'Room 03', state: 'Checked out', initial: 'NW', color: '#e0e9ef' },
 ];
 
- const navItems: { label: Hub; icon: typeof LayoutDashboard }[] = [
-   { label: 'Overview', icon: LayoutDashboard },
-   { label: 'Classroom Hub', icon: GraduationCap },
-   { label: 'Safety & Behavior Hub', icon: ShieldAlert },
-   { label: 'District Operations Hub', icon: Users },
-];
- 
- const pillars: {
-   id: number;
-   name: string;
-  icon: typeof GraduationCap;
-   hubs: OperationalHub[];
-   summary: string;
-   features: string[];
- }[] = [
-   {
-     id: 1,
-     name: 'LMS & Instruction',
-    icon: GraduationCap,
-     hubs: ['Classroom Hub'],
-     summary: 'Classroom stream, portfolios, lesson planning, and special education.',
-     features: ['Daily class stream and Workspace sync', 'Student portfolios and mastery', 'IEP / 504 goals and compliance', 'Lesson planner and seating charts'],
-   },
-   {
-     id: 2,
-     name: 'Safety & Security',
-    icon: ShieldAlert,
-     hubs: ['Safety & Behavior Hub'],
-     summary: 'Campus awareness, visitor access, crisis response, and reunification.',
-     features: ['Emergency attendance matrix', 'Three-tier rapid alerts', 'Visitor check-in and badge workflow', 'Incident forms and reunification'],
-   },
-   {
-     id: 3,
-     name: 'Operations & Transportation',
-    icon: BusFront,
-     hubs: ['District Operations Hub'],
-     summary: 'Student records, enrollment, scheduling, transportation, and nutrition.',
-     features: ['Student profiles and online registration', 'Master scheduling and bus routing', 'Door kiosk attendance and lunch', 'Cafeteria POS and family lunch hub'],
-   },
-   {
-     id: 4,
-     name: 'Behavior & MTSS Interventions',
-    icon: HeartPulse,
-     hubs: ['Safety & Behavior Hub'],
-     summary: 'Whole-child wellness, positive behavior, interventions, and early warning.',
-     features: ['Four-zone mood check-in', 'PBIS rewards and store', 'Tier 2 / 3 progress monitoring', 'Early warning risk indicators'],
-   },
-   {
-     id: 5,
-     name: 'Communication & Community',
-    icon: MessageCircle,
-     hubs: ['Classroom Hub', 'District Operations Hub'],
-     summary: 'A shared family feed and publish-once district communication workflow.',
-     features: ['District and school-site publishing', 'Classroom family feed and translation', 'Masked two-way messages and calls', 'Emergency broadcasts across channels'],
-   },
-   {
-     id: 6,
-     name: 'District Admin & Finance',
-    icon: WalletCards,
-     hubs: ['District Operations Hub'],
-     summary: 'Fund accounting, purchasing, reporting, transcripts, and student fees.',
-     features: ['Fund budgets and requisition approvals', 'Receipt capture and PO matching', 'Ed-Fi / OneRoster reporting pipelines', 'Transcripts, fees, and waivers'],
-   },
-   {
-     id: 7,
-     name: 'Human Resources & Payroll',
-    icon: Users,
-     hubs: ['District Operations Hub'],
-     summary: 'Staff leave, substitute coverage, hourly timecards, and payroll routing.',
-     features: ['Staff leave and credential tracking', 'Substitute dispatch and coverage', 'QR time clock and meal breaks', 'Supervisor approvals and payroll export'],
-   },
- ];
-
-const pillarRoles: Record<number, string[]> = {
-  1: ['district_admin', 'school_admin', 'teacher', 'paraprofessional', 'substitute', 'parent', 'student', 'sped_case_manager', 'counselor'],
-  2: ['district_admin', 'school_admin', 'secretary', 'teacher', 'paraprofessional', 'substitute', 'counselor', 'school_nurse'],
-  3: ['district_admin', 'school_admin', 'secretary', 'teacher', 'paraprofessional', 'substitute', 'parent', 'student', 'registrar', 'state_compliance'],
-  4: ['district_admin', 'school_admin', 'secretary', 'teacher', 'paraprofessional', 'substitute', 'parent', 'student', 'sped_case_manager', 'counselor'],
-  5: ['district_admin', 'school_admin', 'secretary', 'teacher', 'parent', 'student'],
-  6: ['district_admin', 'school_admin', 'secretary', 'registrar', 'state_compliance'],
-  7: ['district_admin', 'school_admin', 'secretary', 'paraprofessional', 'substitute'],
+/*
+ * Site page → internal workspace view. Several workspaces already had their own tab bars;
+ * each of those views is now a page with its own URL, and the reverse maps keep the URL
+ * in sync if a workspace switches views itself.
+ */
+const behaviorViews: Record<string, BehaviorTab> = { pbis: 'Points', categories: 'Categories', store: 'Class store', auction: 'Live auction' };
+const specialEdViews: Record<string, SpecialEdSection> = { iep: 'IEP & timeline', goals: 'SMART goals', accommodations: 'Accommodations', services: 'Service log', consent: 'Parent consent' };
+const schedulingViews: Record<string, SchedulingTier> = { elementary: 'elementary', middle: 'middle', high: 'high' };
+const kioskRoutes: Record<KioskViewTab, Route> = {
+  'Door kiosk': { sectionId: 'students', tabId: 'attendance' },
+  'Cafeteria prep': { sectionId: 'students', tabId: 'lunch-count' },
+  'Office attendance': { sectionId: 'safety', tabId: 'kiosk' },
 };
+const sisRoutes: Record<SisTab, Route> = {
+  Directory: { sectionId: 'students', tabId: 'directory' },
+  Registration: { sectionId: 'students', tabId: 'registration' },
+  Scheduling: { sectionId: 'scheduling', tabId: 'elementary' },
+  Compliance: { sectionId: 'compliance', tabId: 'state-reporting' },
+  'Privacy & records': { sectionId: 'compliance', tabId: 'privacy' },
+  'Door kiosk': { sectionId: 'students', tabId: 'attendance' },
+};
+const reverse = <T extends string>(map: Record<string, T>, value: T) => Object.keys(map).find((key) => map[key] === value) ?? null;
 
 function Label({ children, color = palette.muted }: { children: React.ReactNode; color?: string }) {
   return <Text style={[styles.label, { color }]}>{children}</Text>;
@@ -172,26 +119,12 @@ function IconButton({ icon: Icon, onPress, label, badge }: {
   );
 }
 
-function RoutePreview({ section, tab }: { section: string; tab: string }) {
-  return (
-    <View style={styles.routePreview}>
-      <Label color={palette.forest}>{section.toUpperCase()} WORKSPACE</Label>
-      <Text style={styles.routePreviewTitle}>{tab}</Text>
-      <Text style={styles.routePreviewCopy}>This route is part of the District OS navigation preview. Its workflow and protected data connection are not implemented yet.</Text>
-      <Text style={styles.demoFootnote}>DEMO MODE · Sample data only · No live student or staff records</Text>
-    </View>
-  );
-}
-
 function App() {
   const { width } = useWindowDimensions();
   const compact = width < 820;
   const narrow = width < 560;
   const isDemoMode = !supabase;
-  const [activeHub, setActiveHub] = useState<Hub>('Overview');
-  const [activeSectionId, setActiveSectionId] = useState<PrimarySectionId>('lms');
-  const [activeSubTabId, setActiveSubTabId] = useState('stream');
-  const [selectedPillarId, setSelectedPillarId] = useState<number | null>(1);
+  const [route, navigate] = useHashRoute();
   const [memberRoles, setMemberRoles] = useState<string[]>(isDemoMode ? ['district_admin'] : []);
   const [membershipsLoaded, setMembershipsLoaded] = useState(isDemoMode);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -226,30 +159,33 @@ function App() {
   const matchedStudents = useMemo(
     () => students.filter((student) => student.name.toLowerCase().includes(search.toLowerCase())), [search],
   );
-  const permittedPillars = membershipsLoaded
-    ? pillars.filter((pillar) => pillarRoles[pillar.id].some((role) => memberRoles.includes(role)))
-    : [];
+
+  // ── Route resolution: #/ → home, #/<section> → overview, #/<section>/<page> → page ──
   const visibleSections = membershipsLoaded ? visibleSectionsForRoles(memberRoles) : [];
-  const activeSection = visibleSections.find((section) => section.id === activeSectionId) ?? visibleSections[0] ?? primarySections[0];
-  const visibleSubTabs = visibleTabsForRoles(activeSection, memberRoles);
-  const activeSubTab = visibleSubTabs.find((tab) => tab.id === activeSubTabId) ?? visibleSubTabs[0];
-  const visiblePillars = permittedPillars;
-  const selectedPillar = pillars.find((pillar) => pillar.id === selectedPillarId);
+  const tabsFor = (section: PrimarySection) => visibleTabsForRoles(section, memberRoles);
+  const activeSection = route.sectionId ? visibleSections.find((section) => section.id === route.sectionId) : undefined;
+  const isHome = !activeSection;
+  const visibleSubTabs = activeSection ? tabsFor(activeSection) : [];
+  const activeSubTab = visibleSubTabs.find((tab) => tab.id === route.tabId);
+  const activeTabId = activeSubTab?.id ?? OVERVIEW_TAB_ID;
+  const activeHub = activeSection ? hubFor(activeSection) : null;
 
   useEffect(() => {
     if (!membershipsLoaded) return;
-    if (!visibleSections.some((section) => section.id === activeSectionId)) {
-      const firstSection = visibleSections[0];
-      if (firstSection) {
-        setActiveSectionId(firstSection.id);
-        setActiveSubTabId(firstSection.defaultTab);
-      }
-      return;
-    }
-    if (visibleSubTabs.length && !visibleSubTabs.some((tab) => tab.id === activeSubTabId)) {
-      setActiveSubTabId(visibleSubTabs[0].id);
-    }
-  }, [membershipsLoaded, memberRoles, activeSectionId, activeSubTabId]);
+    // Unknown or unauthorized routes fall back to the nearest page the user can see.
+    const normalized: Route = activeSection ? { sectionId: activeSection.id, tabId: activeSubTab?.id ?? null } : { sectionId: null, tabId: null };
+    if (!sameRoute(normalized, route)) navigate(normalized, { replace: true });
+  }, [membershipsLoaded, memberRoles, route.sectionId, route.tabId]);
+
+  useEffect(() => {
+    const parts = [activeSubTab?.label, activeSection?.title, 'District OS'].filter(Boolean);
+    setDocumentTitle(isHome ? 'District OS · Cedar Valley USD' : parts.join(' · '));
+  }, [isHome, activeSection?.id, activeSubTab?.id]);
+
+  const go = (next: Route) => { navigate(next); setMobileNavOpen(false); };
+  const goHome = () => go({ sectionId: null, tabId: null });
+  const goSection = (sectionId: PrimarySectionId) => go({ sectionId, tabId: null });
+  const goTab = (tabId: string) => activeSection && go({ sectionId: activeSection.id, tabId: tabId === OVERVIEW_TAB_ID ? null : tabId });
 
   const startKioskPath = (path: KioskPath) => { setKioskPath(path); setKioskStep(0); };
   const closeKiosk = () => { setKioskPath(null); setKioskStep(0); };
@@ -257,93 +193,148 @@ function App() {
     : kioskPath === 'Hourly staff' ? ['Scan staff badge', 'Choose time action', 'Confirm timecard']
       : kioskPath === 'Substitute teacher' ? ['Scan job QR', 'Confirm assignment', 'Print day pass']
         : ['Identify yourself', 'Choose visit details', 'Finish check-in'];
-  const title = activeSection.title;
-  const subtitle = `${activeSection.path}${activeSubTab ? `/${activeSubTab.id}` : ''} · Role-filtered workspace`;
-  const selectSection = (sectionId: PrimarySectionId) => {
-    const section = primarySections.find((item) => item.id === sectionId);
-    if (!section) return;
-    setActiveSectionId(section.id);
-    setActiveSubTabId(section.defaultTab);
-    setSelectedPillarId(section.pillarId);
-    setMobileNavOpen(false);
-  };
-  const selectSubTab = (tabId: string) => setActiveSubTabId(tabId);
-  const selectPillar = (pillarId: number | null) => {
-    const section = primarySections.find((item) => item.pillarId === pillarId);
-    if (section) selectSection(section.id);
-  };
-  const renderWorkspace = () => {
-    const tabId = activeSubTab?.id;
-    if (activeSection.id === 'lms' && ['gradebook', 'hattie', 'portfolios'].includes(tabId ?? '')) {
-      const role = memberRoles.includes('student') ? 'student' : memberRoles.includes('parent') ? 'parent' : 'teacher';
-      const initialView: GradebookViewId = role === 'student' ? 'canvas' : tabId === 'portfolios' || role === 'parent' ? 'queue' : 'gradebook';
-      return <UnifiedGradebookWorkspace narrow={narrow} role={role} initialView={initialView} />;
+
+  const renderPage = () => {
+    if (!activeSection) return null;
+    if (!activeSubTab) return <SectionOverview section={activeSection} tabs={visibleSubTabs} narrow={narrow} onOpen={goTab} />;
+    if (activeSubTab.status === 'planned') {
+      return <ModuleBlueprint section={activeSection} tab={activeSubTab} siblings={visibleSubTabs} narrow={narrow} onBack={() => goTab(OVERVIEW_TAB_ID)} onOpen={goTab} />;
     }
-    if (activeSection.id === 'lms' && tabId === 'stream') return <InstructionWorkspace narrow={narrow} />;
-    if (activeSection.id === 'lms' && tabId === 'special-ed') return <SpecialEducationWorkspace narrow={narrow} />;
-    if (activeSection.id === 'lms' && tabId === 'planbook') return <LessonPlannerWorkspace narrow={narrow} />;
-    if (activeSection.id === 'lms' && tabId === 'seating') return <ClassroomSeatingWorkspace narrow={narrow} />;
-    if (activeSection.id === 'communication' && tabId === 'feed') return <CommunicationCenter narrow={narrow} />;
-    if (activeSection.id === 'safety' && tabId === 'kiosk') return <ClassroomKioskWorkspace narrow={narrow} />;
-    if (activeSection.id === 'safety' && (tabId === 'matrix' || tabId === 'crisis')) return <EmergencyCommandWorkspace narrow={narrow} />;
-    if (activeSection.id === 'safety' && tabId === 'visitors') return <VisitorScreeningWorkspace narrow={narrow} />;
-    if (activeSection.id === 'safety' && tabId === 'reunification') return <ReunificationWorkspace narrow={narrow} />;
-    if (activeSection.id === 'behavior' && (tabId === 'mood-meter' || tabId === 'pbis')) return <BehaviorRewardsWorkspace narrow={narrow} />;
-    if (activeSection.id === 'admin' && tabId === 'sis-directory') return <StudentInformationWorkspace narrow={narrow} />;
-    if (activeSection.id === 'admin' && tabId === 'door-kiosk') return <ClassroomKioskWorkspace narrow={narrow} />;
-    if (activeSection.id === 'admin' && tabId === 'master-scheduling') return <K12SchedulingEngine narrow={narrow} />;
-    if (activeSection.id === 'admin' && tabId === 'compliance') return <PrivacyComplianceWorkspace narrow={narrow} />;
-    return <RoutePreview section={activeSection.title} tab={activeSubTab?.label ?? activeSection.title} />;
+    const sectionId = activeSection.id;
+    const tabId = activeSubTab.id;
+    const key = `${sectionId}/${tabId}`;
+    switch (sectionId) {
+      case 'instruction':
+        if (tabId === 'stream') return <InstructionWorkspace key={key} narrow={narrow} />;
+        if (tabId === 'planbook') return <LessonPlannerWorkspace key={key} narrow={narrow} />;
+        if (tabId === 'seating') return <ClassroomSeatingWorkspace key={key} narrow={narrow} />;
+        break;
+      case 'grades': {
+        const role = memberRoles.includes('student') ? 'student' : memberRoles.includes('parent') ? 'parent' : 'teacher';
+        const initialView: GradebookViewId = role === 'student' ? 'canvas' : tabId === 'portfolios' || role === 'parent' ? 'queue' : 'gradebook';
+        return <UnifiedGradebookWorkspace key={key} narrow={narrow} role={role} initialView={initialView} />;
+      }
+      case 'special-ed':
+        if (specialEdViews[tabId]) return <SpecialEducationWorkspace key={key} narrow={narrow} tab={specialEdViews[tabId]} onTabChange={(view) => go({ sectionId, tabId: reverse(specialEdViews, view) })} />;
+        break;
+      case 'communication':
+        if (tabId === 'feed') return <CommunityFeed key={key} narrow={narrow} />;
+        if (tabId === 'messages' || tabId === 'masked-caller') return <DirectMessaging key={key} narrow={narrow} />;
+        if (tabId === 'broadcasts') return <EmergencyBroadcast key={key} narrow={narrow} />;
+        break;
+      case 'safety':
+        if (tabId === 'kiosk') return <ClassroomKioskWorkspace key={key} narrow={narrow} tab="Office attendance" onTabChange={(view) => go(kioskRoutes[view])} />;
+        if (tabId === 'crisis' || tabId === 'matrix') return <EmergencyCommandWorkspace key={key} narrow={narrow} />;
+        if (tabId === 'visitors') return <VisitorScreeningWorkspace key={key} narrow={narrow} />;
+        if (tabId === 'reunification') return <ReunificationWorkspace key={key} narrow={narrow} />;
+        break;
+      case 'behavior':
+        if (behaviorViews[tabId]) return <BehaviorRewardsWorkspace key={key} narrow={narrow} tab={behaviorViews[tabId]} onTabChange={(view) => go({ sectionId, tabId: reverse(behaviorViews, view) })} />;
+        break;
+      case 'students':
+        if (tabId === 'directory') return <StudentInformationWorkspace key={key} narrow={narrow} tab="Directory" onTabChange={(view) => go(sisRoutes[view])} />;
+        if (tabId === 'registration') return <StudentInformationWorkspace key={key} narrow={narrow} tab="Registration" onTabChange={(view) => go(sisRoutes[view])} />;
+        if (tabId === 'attendance') return <ClassroomKioskWorkspace key={key} narrow={narrow} tab="Door kiosk" onTabChange={(view) => go(kioskRoutes[view])} />;
+        if (tabId === 'lunch-count') return <ClassroomKioskWorkspace key={key} narrow={narrow} tab="Cafeteria prep" onTabChange={(view) => go(kioskRoutes[view])} />;
+        break;
+      case 'scheduling':
+        if (schedulingViews[tabId]) return <K12SchedulingEngine key={key} narrow={narrow} tier={schedulingViews[tabId]} />;
+        break;
+      case 'compliance':
+        if (tabId === 'privacy') return <PrivacyComplianceWorkspace key={key} narrow={narrow} />;
+        if (tabId === 'state-reporting') return <StudentInformationWorkspace key={key} narrow={narrow} tab="Compliance" onTabChange={(view) => go(sisRoutes[view])} />;
+        break;
+      default:
+        break;
+    }
+    // A page marked `demo` without a workspace mapping is a site-map bug; show its blueprint.
+    return <ModuleBlueprint section={activeSection} tab={activeSubTab} siblings={visibleSubTabs} narrow={narrow} onBack={() => goTab(OVERVIEW_TAB_ID)} onOpen={goTab} />;
   };
 
-  const SidebarContent = () => (
-    <>
+  const renderSidebar = () => (
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={navStyles.sidebarScroll}>
       <View style={[styles.brandBlock, collapsedSidebar && styles.brandBlockCollapsed]}>
         <View style={styles.brandMark}><Home size={19} color={palette.forestDeep} strokeWidth={2.2} /></View>
         {!collapsedSidebar ? <View><Text style={styles.brandName}>district OS</Text><Text style={styles.brandSub}>CEDAR VALLEY</Text></View> : null}
       </View>
-      {!collapsedSidebar ? <Text style={styles.sideEyebrow}>WORKSPACE</Text> : null}
       <View style={[styles.schoolPicker, collapsedSidebar && styles.schoolPickerCollapsed]}>
         <View style={styles.schoolSeal}><Text style={styles.schoolSealText}>CV</Text></View>
         {!collapsedSidebar ? <View style={{ flex: 1 }}><Text style={styles.schoolName}>Cedar Valley USD</Text><Text style={styles.schoolSub}>District view</Text></View> : null}
         {!collapsedSidebar ? <ChevronDown size={15} color="#a8b9ad" /> : null}
       </View>
-      {!collapsedSidebar ? <Text style={[styles.sideEyebrow, { marginTop: 27 }]}>DISTRICT WORKSPACES</Text> : null}
-      {visibleSections.map(({ id, title: sectionTitle, icon: Icon }) => {
-        const selected = activeSectionId === id;
-        return (
-          <Pressable key={id} accessibilityRole="tab" accessibilityState={{ selected }} accessibilityLabel={sectionTitle} onPress={() => selectSection(id)} style={[styles.navItem, collapsedSidebar && styles.navItemCollapsed, selected && styles.navItemSelected]}>
-            <Icon size={18} color={selected ? palette.ink : '#b5c4ba'} strokeWidth={1.8} />
-            {!collapsedSidebar ? <Text style={[styles.navText, selected && styles.navTextSelected]}>{sectionTitle}</Text> : null}
-          </Pressable>
-        );
+
+      <Pressable accessibilityRole="link" accessibilityState={{ selected: isHome }} accessibilityLabel="District home" onPress={goHome} style={[navStyles.navItem, { marginTop: 18 }, collapsedSidebar && styles.navItemCollapsed, isHome && styles.navItemSelected]}>
+        <LayoutDashboard size={17} color={isHome ? palette.ink : '#b5c4ba'} strokeWidth={1.8} />
+        {!collapsedSidebar ? <Text style={[styles.navText, isHome && styles.navTextSelected]}>Home</Text> : null}
+      </Pressable>
+
+      {hubs.map((hub) => {
+        const hubSections = sectionsForHub(hub.id, visibleSections);
+        if (!hubSections.length) return null;
+        return <View key={hub.id} style={navStyles.hubGroup}>
+          {!collapsedSidebar ? <Text style={navStyles.hubLabel}>{hub.shortTitle.toUpperCase()}</Text> : <View style={navStyles.hubRule} />}
+          {hubSections.map(({ id, title: sectionTitle, icon: Icon }) => {
+            const selected = activeSection?.id === id;
+            return (
+              <Pressable key={id} accessibilityRole="link" accessibilityState={{ selected }} accessibilityLabel={sectionTitle} onPress={() => goSection(id)} style={[navStyles.navItem, collapsedSidebar && styles.navItemCollapsed, selected && styles.navItemSelected]}>
+                <Icon size={17} color={selected ? palette.ink : '#b5c4ba'} strokeWidth={1.8} />
+                {!collapsedSidebar ? <Text numberOfLines={1} style={[styles.navText, selected && styles.navTextSelected]}>{sectionTitle}</Text> : null}
+              </Pressable>
+            );
+          })}
+        </View>;
       })}
-      {!collapsedSidebar ? <Text style={[styles.sideEyebrow, { marginTop: 25 }]}>QUICK ACCESS</Text> : null}
+
+      {!collapsedSidebar ? <Text style={navStyles.hubLabel}>QUICK ACCESS</Text> : <View style={navStyles.hubRule} />}
       <Pressable accessibilityRole="button" accessibilityLabel="Front office kiosk" onPress={() => startKioskPath('Visitor or volunteer')} style={[styles.quickLink, collapsedSidebar && styles.quickLinkCollapsed]}><UserRoundCheck size={17} color="#b5c4ba" />{!collapsedSidebar ? <Text style={styles.quickText}>Front office kiosk</Text> : null}</Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="Staff and facilities" onPress={() => { selectSection('hr'); }} style={[styles.quickLink, collapsedSidebar && styles.quickLinkCollapsed]}><CalendarDays size={17} color="#b5c4ba" />{!collapsedSidebar ? <Text style={styles.quickText}>Staff & facilities</Text> : null}</Pressable>
       <View style={[styles.sidebarBottom, collapsedSidebar && styles.sidebarBottomCollapsed]}>
         <View style={styles.avatar}><Text style={styles.avatarText}>JD</Text></View>
         {!collapsedSidebar ? <View style={{ flex: 1 }}><Text style={styles.profileName}>Jordan Davis</Text><Text style={styles.profileRole}>District administrator</Text></View> : null}
         {!collapsedSidebar ? <ChevronDown size={15} color="#a8b9ad" /> : null}
       </View>
-    </>
+    </ScrollView>
   );
+
+  const crumbs: { label: string; onPress?: () => void }[] = [{ label: 'Cedar Valley USD', onPress: isHome ? undefined : goHome }];
+  if (activeSection && activeHub) {
+    crumbs.push({ label: activeHub.shortTitle });
+    crumbs.push({ label: activeSection.title, onPress: activeSubTab ? () => goSection(activeSection.id) : undefined });
+    if (activeSubTab) crumbs.push({ label: activeSubTab.label });
+  } else {
+    crumbs.push({ label: 'Home' });
+  }
+  const shownCrumbs = narrow ? crumbs.slice(-2) : crumbs;
+
+  const pageHeader = isHome
+    ? { eyebrow: 'MONDAY, OCTOBER 19, 2026', title: 'District overview', subtitle: 'Today across Cedar Valley, and every part of District OS.' }
+    : activeSubTab && activeSection && activeHub
+      ? { eyebrow: `${activeHub.shortTitle.toUpperCase()} · ${activeSection.title.toUpperCase()}`, title: activeSubTab.label, subtitle: activeSubTab.summary }
+      : null;
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" />
       <View style={styles.appShell}>
-        {!compact ? <View style={[styles.sidebar, collapsedSidebar && styles.sidebarCollapsed]}><SidebarContent /></View> : null}
+        {!compact ? <View style={[styles.sidebar, collapsedSidebar && styles.sidebarCollapsed]}>{renderSidebar()}</View> : null}
         {compact && mobileNavOpen ? <View style={styles.mobileDrawer}>
           <View style={styles.mobileDrawerHeader}><Text style={styles.mobileDrawerTitle}>Navigation</Text><IconButton icon={X} label="Close navigation" onPress={() => setMobileNavOpen(false)} /></View>
-          <SidebarContent />
+          {renderSidebar()}
         </View> : null}
         <View style={styles.mainColumn}>
           <View style={styles.topbar}>
-            <View style={styles.topLeft}>
+            <View style={[styles.topLeft, { flex: 1, minWidth: 0 }]}>
               {compact ? <IconButton icon={Menu} label="Open navigation" onPress={() => setMobileNavOpen(!mobileNavOpen)} /> : null}
               {!compact ? <IconButton icon={sidebarCollapsed ? PanelLeftOpen : PanelLeftClose} label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} onPress={() => setSidebarCollapsed(!sidebarCollapsed)} /> : null}
-              <Text style={styles.breadcrumb}>Cedar Valley USD <Text style={styles.breadcrumbDivider}>/</Text> <Text style={styles.breadcrumbActive}>{activeSection.title}</Text></Text>
+              <View style={navStyles.crumbs}>
+                {shownCrumbs.map((crumb, index) => {
+                  const last = index === shownCrumbs.length - 1;
+                  return <View key={`${crumb.label}-${index}`} style={navStyles.crumbItem}>
+                    {index > 0 ? <ChevronRight size={12} color="#c1c8c1" /> : null}
+                    {crumb.onPress ? <Pressable accessibilityRole="link" onPress={crumb.onPress}><Text numberOfLines={1} style={[styles.breadcrumb, navStyles.crumbLink]}>{crumb.label}</Text></Pressable>
+                      : <Text numberOfLines={1} style={[styles.breadcrumb, last && styles.breadcrumbActive]}>{crumb.label}</Text>}
+                  </View>;
+                })}
+              </View>
             </View>
             <View style={styles.topActions}>
               <Pressable onPress={() => setSearchOpen(true)} style={[styles.searchTrigger, narrow && styles.searchTriggerNarrow]}>
@@ -355,19 +346,19 @@ function App() {
             </View>
           </View>
 
-          <SubNavHeader tabs={visibleSubTabs} activeTabId={activeSubTab?.id ?? ''} onSelect={selectSubTab} />
+          {activeSection ? <SubNavHeader sectionTitle={activeSection.title} tabs={visibleSubTabs} activeTabId={activeTabId} onSelect={goTab} /> : null}
 
           <ScrollView contentContainerStyle={[styles.page, narrow && styles.pageNarrow]}>
             {!membershipsLoaded ? <View style={styles.accessGate}><Clock3 size={20} color={palette.muted} /><Text style={styles.accessTitle}>Checking district access…</Text></View>
               : !isDemoMode && memberRoles.length === 0 ? <View style={styles.accessGate}><ShieldAlert size={22} color={palette.orange} /><Text style={styles.accessTitle}>No active district role</Text><Text style={styles.accessCopy}>Sign in with a district account that has an active SIS membership to continue.</Text></View>
                 : !isDemoMode ? <View style={styles.accessGate}><ShieldAlert size={22} color={palette.forest} /><Text style={styles.accessTitle}>Role verified · protected data adapters pending</Text><Text style={styles.accessCopy}>Your SIS role controls visible hubs. Sample student records stay hidden until each workspace reads through its RLS-protected repository.</Text></View>
                   : <>
-            <View style={styles.greetingRow}>
-              <View style={{ flex: 1 }}><Label color={palette.forest}>MONDAY, OCTOBER 19, 2026</Label><Text style={styles.pageTitle}>{title}</Text><Text style={styles.pageSubtitle}>{subtitle}</Text></View>
-              <Pressable style={styles.primaryButton} onPress={() => startKioskPath('Visitor or volunteer')}><Plus size={17} color={palette.paper} /><Text style={styles.primaryButtonText}>Front office</Text></Pressable>
-            </View>
+            {pageHeader ? <View style={styles.greetingRow}>
+              <View style={{ flex: 1 }}><Label color={palette.forest}>{pageHeader.eyebrow}</Label><Text style={styles.pageTitle}>{pageHeader.title}</Text><Text style={styles.pageSubtitle}>{pageHeader.subtitle}</Text></View>
+              {isHome ? <Pressable style={styles.primaryButton} onPress={() => startKioskPath('Visitor or volunteer')}><Plus size={17} color={palette.paper} /><Text style={styles.primaryButtonText}>Front office</Text></Pressable> : null}
+            </View> : null}
 
-            {renderWorkspace()}{false && <>
+            {!isHome ? renderPage() : <>
             <View style={[styles.metricGrid, narrow && styles.metricGridNarrow]}>
               <View style={[styles.metricCard, styles.metricCardFeatured]}>
                 <View style={styles.metricTop}><Text style={[styles.metricLabel, { color: '#d1ded5' }]}>STUDENTS PRESENT</Text><GraduationCap size={18} color={palette.lime} /></View>
@@ -378,7 +369,7 @@ function App() {
                 <View style={styles.metricTop}><Text style={styles.metricLabel}>ATTENDANCE RATE</Text><CalendarDays size={18} color={palette.forest} /></View>
                 <View style={styles.metricValueRow}><Text style={styles.metricValue}>95.0%</Text><ArrowUpRight size={15} color={palette.forest} /></View>
                 <Text style={styles.metricNote}>+0.8% from last Monday</Text>
-                <View style={styles.miniBars}>{[26, 37, 31, 49, 43, 56, 45, 66, 52, 72, 62, 86].map((height, i) => <View key={i} style={[styles.miniBar, { height, backgroundColor: i === 11 ? palette.forest : '#dce7df' }]} />)}</View>
+                <View style={styles.miniBars}>{[26, 37, 31, 49, 43, 56, 45, 66, 52, 72, 62, 86].map((height, i) => <View key={i} style={[styles.miniBar, { height: height * 0.32, backgroundColor: i === 11 ? palette.forest : '#dce7df' }]} />)}</View>
               </View>
               <View style={styles.metricCard}>
                 <View style={styles.metricTop}><Text style={styles.metricLabel}>STAFF ON CAMPUS</Text><Users size={18} color={palette.blue} /></View>
@@ -390,63 +381,36 @@ function App() {
                 <View style={styles.metricTop}><Text style={styles.metricLabel}>ACTIVE SAFETY ITEMS</Text><ShieldAlert size={18} color={palette.orange} /></View>
                 <View style={styles.metricValueRow}><Text style={styles.metricValue}>02</Text><View style={[styles.metricDelta, { backgroundColor: palette.orangeSoft }]}><Text style={[styles.metricDeltaText, { color: '#b65c3b' }]}>Needs review</Text></View></View>
                 <Text style={styles.metricNote}>1 open · 1 follow-up due</Text>
-                <Pressable onPress={() => setActiveHub('Safety & Behavior Hub')} style={styles.metricLink}><Text style={styles.metricLinkText}>Review safety hub</Text><ArrowRight size={13} color={palette.forest} /></Pressable>
+                <Pressable onPress={() => goSection('safety')} style={styles.metricLink}><Text style={styles.metricLinkText}>Open Safety</Text><ArrowRight size={13} color={palette.forest} /></Pressable>
               </View>
             </View>
 
-            <View style={styles.pillarSection}>
-              <View style={styles.pillarHeader}>
-                <View style={{ flex: 1 }}>
-                  <Label color={palette.forest}>ONE PLATFORM · SEVEN PILLARS</Label>
-                  <Text style={styles.pillarHeading}>{activeHub === 'Overview' ? 'Connected district workflows' : activeHub}</Text>
-                  <Text style={styles.pillarSubtitle}>{activeHub === 'Overview' ? 'Browse the platform by operational hub.' : 'Pillars available to this operational hub.'}</Text>
-                </View>
-                <View style={styles.pillarCount}><Text style={styles.pillarCountText}>{visiblePillars.length} PILLARS</Text></View>
-              </View>
-              <View style={styles.sharedLayer}>
-                <View style={styles.sharedLayerMarker}><Home size={14} color={palette.forest} /></View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.sharedLayerTitle}>Shared district data layer</Text>
-                  <Text style={styles.sharedLayerText}>Tenant, school, and role scope connect student, staff, household, schedule, communication, and audit records across pillars.</Text>
-                </View>
-                <Text style={styles.architectureTag}>ARCHITECTURE PREVIEW</Text>
-              </View>
-              <View style={styles.pillarGrid}>
-                {visiblePillars.map((pillar) => {
-                  const selected = selectedPillarId === pillar.id;
-                  return (
-                    <Pressable key={pillar.id} onPress={() => selectPillar(selected ? null : pillar.id)} style={[styles.pillarCard, narrow && styles.pillarCardNarrow, selected && styles.pillarCardSelected]}>
-                      <View style={styles.pillarCardTop}><Text style={styles.pillarNumber}>PILLAR {String(pillar.id).padStart(2, '0')}</Text><ArrowRight size={14} color={selected ? palette.forest : '#98a29a'} /></View>
-                      <Text style={styles.pillarName}>{pillar.name}</Text>
-                      <Text style={styles.pillarSummary}>{pillar.summary}</Text>
-                      <View style={styles.pillarHubRow}>{pillar.hubs.map((hub) => <Text key={hub} style={styles.pillarHubTag}>{hub.replace(' Hub', '')}</Text>)}</View>
-                    </Pressable>
-                  );
-                })}
-              </View>
-              {selectedPillar ? <View style={styles.pillarDetail}>
-                <Text style={styles.pillarDetailTitle}>Pillar {selectedPillar?.id}: {selectedPillar?.name}</Text>
-                <Text style={styles.pillarDetailFeatures}>{selectedPillar?.features.join('  ·  ')}</Text>
-              </View> : null}
-              <Text style={styles.pillarFootnote}>Hub navigation is a role-based view over shared platform domains. Backend services and access policies are not connected in this demo.</Text>
-            </View>
+            <HubBreakdown sections={visibleSections} tabsFor={tabsFor} narrow={narrow} onOpenSection={goSection} />
 
             <View style={[styles.contentGrid, narrow && styles.contentGridNarrow]}>
               <View style={styles.panel}>
                 <View style={styles.panelHeader}><View><Text style={styles.panelTitle}>School pulse</Text><Text style={styles.panelSubtitle}>Live snapshot across your district</Text></View><Pressable style={styles.dropdown}><Text style={styles.dropdownText}>All schools</Text><ChevronDown size={14} color={palette.muted} /></Pressable></View>
-                <View style={styles.schoolRow}><View style={[styles.schoolGlyph, { backgroundColor: '#e5f0df' }]}><Text style={[styles.schoolGlyphText, { color: '#4e7044' }]}>E</Text></View><View style={styles.schoolInfo}><Text style={styles.schoolRowName}>Evergreen Elementary</Text><Text style={styles.schoolRowMeta}>K–5 · 682 students</Text></View><View style={styles.schoolStat}><Text style={styles.schoolRate}>96.8%</Text><Text style={styles.schoolRateCaption}>present</Text></View><View style={[styles.statusPill, { backgroundColor: palette.limeSoft }]}><View style={[styles.statusDot, { backgroundColor: '#73a553' }]} /><Text style={[styles.statusText, { color: '#50753a' }]}>On track</Text></View><ChevronRight size={16} color="#a3ada5" /></View>
-                <View style={styles.schoolRow}><View style={[styles.schoolGlyph, { backgroundColor: '#f7ebd9' }]}><Text style={[styles.schoolGlyphText, { color: '#a47134' }]}>C</Text></View><View style={styles.schoolInfo}><Text style={styles.schoolRowName}>Canyon Ridge Middle</Text><Text style={styles.schoolRowMeta}>6–8 · 514 students</Text></View><View style={styles.schoolStat}><Text style={styles.schoolRate}>93.2%</Text><Text style={styles.schoolRateCaption}>present</Text></View><View style={[styles.statusPill, { backgroundColor: palette.yellowSoft }]}><View style={[styles.statusDot, { backgroundColor: palette.yellow }]} /><Text style={[styles.statusText, { color: '#96742b' }]}>Watch</Text></View><ChevronRight size={16} color="#a3ada5" /></View>
-                <View style={styles.schoolRow}><View style={[styles.schoolGlyph, { backgroundColor: '#e1ebf2' }]}><Text style={[styles.schoolGlyphText, { color: '#55778e' }]}>W</Text></View><View style={styles.schoolInfo}><Text style={styles.schoolRowName}>Westfield High School</Text><Text style={styles.schoolRowMeta}>9–12 · 1,204 students</Text></View><View style={styles.schoolStat}><Text style={styles.schoolRate}>94.4%</Text><Text style={styles.schoolRateCaption}>present</Text></View><View style={[styles.statusPill, { backgroundColor: palette.limeSoft }]}><View style={[styles.statusDot, { backgroundColor: '#73a553' }]} /><Text style={[styles.statusText, { color: '#50753a' }]}>On track</Text></View><ChevronRight size={16} color="#a3ada5" /></View>
-                <View style={styles.schoolRow}><View style={[styles.schoolGlyph, { backgroundColor: '#f0e7eb' }]}><Text style={[styles.schoolGlyphText, { color: '#906579' }]}>M</Text></View><View style={styles.schoolInfo}><Text style={styles.schoolRowName}>Maple Grove Elementary</Text><Text style={styles.schoolRowMeta}>K–5 · 398 students</Text></View><View style={styles.schoolStat}><Text style={styles.schoolRate}>91.6%</Text><Text style={styles.schoolRateCaption}>present</Text></View><View style={[styles.statusPill, { backgroundColor: palette.orangeSoft }]}><View style={[styles.statusDot, { backgroundColor: palette.orange }]} /><Text style={[styles.statusText, { color: '#a8583d' }]}>Attention</Text></View><ChevronRight size={16} color="#a3ada5" /></View>
-                <Pressable onPress={() => setActiveHub('District Operations Hub')} style={styles.panelFooter}><Text style={styles.footerLink}>View attendance detail</Text><ArrowRight size={14} color={palette.forest} /></Pressable>
+                {[
+                  { name: 'Evergreen Elementary', meta: 'K–5 · 682 students', rate: '96.8%', status: 'On track', glyph: 'E', bg: '#e5f0df', fg: '#4e7044', pill: palette.limeSoft, dot: '#73a553', text: '#50753a' },
+                  { name: 'Canyon Ridge Middle', meta: '6–8 · 514 students', rate: '93.2%', status: 'Watch', glyph: 'C', bg: '#f7ebd9', fg: '#a47134', pill: palette.yellowSoft, dot: palette.yellow, text: '#96742b' },
+                  { name: 'Westfield High School', meta: '9–12 · 1,204 students', rate: '94.4%', status: 'On track', glyph: 'W', bg: '#e1ebf2', fg: '#55778e', pill: palette.limeSoft, dot: '#73a553', text: '#50753a' },
+                  { name: 'Maple Grove Elementary', meta: 'K–5 · 398 students', rate: '91.6%', status: 'Attention', glyph: 'M', bg: '#f0e7eb', fg: '#906579', pill: palette.orangeSoft, dot: palette.orange, text: '#a8583d' },
+                ].map((school) => <Pressable key={school.name} onPress={() => go({ sectionId: 'students', tabId: 'attendance' })} style={styles.schoolRow}>
+                  <View style={[styles.schoolGlyph, { backgroundColor: school.bg }]}><Text style={[styles.schoolGlyphText, { color: school.fg }]}>{school.glyph}</Text></View>
+                  <View style={styles.schoolInfo}><Text style={styles.schoolRowName}>{school.name}</Text><Text style={styles.schoolRowMeta}>{school.meta}</Text></View>
+                  <View style={styles.schoolStat}><Text style={styles.schoolRate}>{school.rate}</Text><Text style={styles.schoolRateCaption}>present</Text></View>
+                  {!narrow ? <View style={[styles.statusPill, { backgroundColor: school.pill }]}><View style={[styles.statusDot, { backgroundColor: school.dot }]} /><Text style={[styles.statusText, { color: school.text }]}>{school.status}</Text></View> : null}
+                  <ChevronRight size={16} color="#a3ada5" />
+                </Pressable>)}
+                <Pressable onPress={() => go({ sectionId: 'students', tabId: 'attendance' })} style={styles.panelFooter}><Text style={styles.footerLink}>View attendance detail</Text><ArrowRight size={14} color={palette.forest} /></Pressable>
               </View>
 
-              <View style={styles.rightStack}>
+              <View style={[styles.rightStack, narrow && { width: '100%' }]}>
                 <View style={styles.panel}>
                   <View style={styles.panelHeader}><View><Text style={styles.panelTitle}>Needs your attention</Text><Text style={styles.panelSubtitle}>A few things to take care of</Text></View><View style={styles.alertCounter}><Text style={styles.alertCounterText}>3</Text></View></View>
-                  <Pressable onPress={() => setActiveHub('Safety & Behavior Hub')} style={styles.attentionRow}><View style={[styles.attentionIcon, { backgroundColor: palette.orangeSoft }]}><ShieldAlert size={17} color={palette.orange} /></View><View style={{ flex: 1 }}><Text style={styles.attentionTitle}>Safety follow-up due</Text><Text style={styles.attentionMeta}>Maple Grove · 10:30 AM</Text></View><ChevronRight size={15} color="#9ba59d" /></Pressable>
-                  <Pressable onPress={() => setActiveHub('District Operations Hub')} style={styles.attentionRow}><View style={[styles.attentionIcon, { backgroundColor: palette.yellowSoft }]}><UserRoundSearch size={17} color="#ab8737" /></View><View style={{ flex: 1 }}><Text style={styles.attentionTitle}>2 classes need coverage</Text><Text style={styles.attentionMeta}>Westfield High · 11:15 AM</Text></View><ChevronRight size={15} color="#9ba59d" /></Pressable>
-                  <Pressable onPress={() => setActiveHub('District Operations Hub')} style={[styles.attentionRow, { borderBottomWidth: 0 }]}><View style={[styles.attentionIcon, { backgroundColor: palette.blueSoft }]}><BusFront size={17} color={palette.blue} /></View><View style={{ flex: 1 }}><Text style={styles.attentionTitle}>Dismissal change requested</Text><Text style={styles.attentionMeta}>1 student · Awaiting approval</Text></View><ChevronRight size={15} color="#9ba59d" /></Pressable>
+                  <Pressable onPress={() => go({ sectionId: 'safety', tabId: 'incidents' })} style={styles.attentionRow}><View style={[styles.attentionIcon, { backgroundColor: palette.orangeSoft }]}><ShieldAlert size={17} color={palette.orange} /></View><View style={{ flex: 1 }}><Text style={styles.attentionTitle}>Safety follow-up due</Text><Text style={styles.attentionMeta}>Maple Grove · 10:30 AM</Text></View><ChevronRight size={15} color="#9ba59d" /></Pressable>
+                  <Pressable onPress={() => go({ sectionId: 'hr', tabId: 'sub-dispatch' })} style={styles.attentionRow}><View style={[styles.attentionIcon, { backgroundColor: palette.yellowSoft }]}><UserRoundSearch size={17} color="#ab8737" /></View><View style={{ flex: 1 }}><Text style={styles.attentionTitle}>2 classes need coverage</Text><Text style={styles.attentionMeta}>Westfield High · 11:15 AM</Text></View><ChevronRight size={15} color="#9ba59d" /></Pressable>
+                  <Pressable onPress={() => go({ sectionId: 'transportation', tabId: 'dismissal' })} style={[styles.attentionRow, { borderBottomWidth: 0 }]}><View style={[styles.attentionIcon, { backgroundColor: palette.blueSoft }]}><BusFront size={17} color={palette.blue} /></View><View style={{ flex: 1 }}><Text style={styles.attentionTitle}>Dismissal change requested</Text><Text style={styles.attentionMeta}>1 student · Awaiting approval</Text></View><ChevronRight size={15} color="#9ba59d" /></Pressable>
                 </View>
                 <View style={styles.kioskPanel}>
                   <View style={styles.kioskTopline}><View style={styles.kioskSmallIcon}><UserRoundCheck size={16} color={palette.lime} /></View><Text style={styles.kioskEyebrow}>FRONT OFFICE</Text><View style={styles.kioskLive}><View style={styles.kioskLiveDot} /><Text style={styles.kioskLiveText}>READY</Text></View></View>
@@ -462,8 +426,8 @@ function App() {
               <View style={styles.activityRow}><View style={[styles.activityIcon, { backgroundColor: palette.blueSoft }]}><HeartPulse size={16} color={palette.blue} /></View><View style={{ flex: 1 }}><Text style={styles.activityTitle}><Text style={styles.activityStrong}>Wellness visit recorded</Text> for student</Text><Text style={styles.activityMeta}>Canyon Ridge Middle · Counselor follow-up scheduled</Text></View><Text style={styles.activityTime}>8:31 AM</Text></View>
               <View style={[styles.activityRow, { borderBottomWidth: 0 }]}><View style={[styles.activityIcon, { backgroundColor: palette.yellowSoft }]}><ArrowDownRight size={16} color="#ab8737" /></View><View style={{ flex: 1 }}><Text style={styles.activityTitle}><Text style={styles.activityStrong}>Staff absence reported</Text> by Morgan Lee</Text><Text style={styles.activityMeta}>Westfield High School · Coverage requested</Text></View><Text style={styles.activityTime}>8:18 AM</Text></View>
             </View>
-            <Text style={styles.demoFootnote}>District OS demo · Sample data only · No live student records or external services connected</Text>
             </>}
+            <Text style={styles.demoFootnote}>DEMO MODE · Sample data only · No live student or staff records or external services connected</Text>
                 </>}
           </ScrollView>
         </View>
@@ -473,7 +437,7 @@ function App() {
           <View style={[styles.searchModal, narrow && styles.searchModalNarrow]}>
             <View style={styles.modalSearchRow}><Search size={18} color={palette.muted} /><TextInput autoFocus placeholder="Search student name" placeholderTextColor="#9ca59d" value={search} onChangeText={setSearch} style={styles.modalSearchInput} /><Pressable onPress={() => { setSearchOpen(false); setSearch(''); }}><X size={18} color={palette.muted} /></Pressable></View>
             <Text style={styles.modalSectionLabel}>{search ? 'MATCHING STUDENTS' : 'RECENT STUDENTS'}</Text>
-            {matchedStudents.length ? matchedStudents.map((student) => <Pressable key={student.name} style={styles.searchResult} onPress={() => { setSearchOpen(false); setSearch(''); setActiveHub('District Operations Hub'); }}>
+            {matchedStudents.length ? matchedStudents.map((student) => <Pressable key={student.name} style={styles.searchResult} onPress={() => { setSearchOpen(false); setSearch(''); go({ sectionId: 'students', tabId: 'directory' }); }}>
               <View style={[styles.studentInitial, { backgroundColor: student.color }]}><Text style={styles.studentInitialText}>{student.initial}</Text></View>
               <View style={{ flex: 1 }}><Text style={styles.studentName}>{student.name}</Text><Text style={styles.studentDetails}>{student.grade} · {student.room}</Text></View>
               <Text style={[styles.studentState, student.state === 'Checked out' && { color: palette.orange }]}>{student.state}</Text><ChevronRight size={15} color="#a3ada5" />
@@ -486,9 +450,14 @@ function App() {
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setAlertsOpen(false)} />
           <View style={[styles.alertModal, narrow && styles.searchModalNarrow]}>
             <View style={styles.modalTitleRow}><View><Text style={styles.panelTitle}>District alerts</Text><Text style={styles.panelSubtitle}>Items that may need your attention</Text></View><IconButton icon={X} label="Close alerts" onPress={() => setAlertsOpen(false)} /></View>
-            <View style={styles.alertModalItem}><View style={[styles.attentionIcon, { backgroundColor: palette.orangeSoft }]}><ShieldAlert size={17} color={palette.orange} /></View><View style={{ flex: 1 }}><Text style={styles.attentionTitle}>Safety follow-up due</Text><Text style={styles.attentionMeta}>Maple Grove · 10:30 AM</Text></View><ChevronRight size={15} color="#9ba59d" /></View>
-            <View style={styles.alertModalItem}><View style={[styles.attentionIcon, { backgroundColor: palette.yellowSoft }]}><UserRoundSearch size={17} color="#ab8737" /></View><View style={{ flex: 1 }}><Text style={styles.attentionTitle}>2 classes need coverage</Text><Text style={styles.attentionMeta}>Westfield High · 11:15 AM</Text></View><ChevronRight size={15} color="#9ba59d" /></View>
-            <View style={[styles.alertModalItem, { borderBottomWidth: 0 }]}><View style={[styles.attentionIcon, { backgroundColor: palette.blueSoft }]}><BusFront size={17} color={palette.blue} /></View><View style={{ flex: 1 }}><Text style={styles.attentionTitle}>Dismissal change requested</Text><Text style={styles.attentionMeta}>1 student · Awaiting approval</Text></View><ChevronRight size={15} color="#9ba59d" /></View>
+            {[
+              { title: 'Safety follow-up due', meta: 'Maple Grove · 10:30 AM', icon: ShieldAlert, bg: palette.orangeSoft, fg: palette.orange, route: { sectionId: 'safety', tabId: 'incidents' } },
+              { title: '2 classes need coverage', meta: 'Westfield High · 11:15 AM', icon: UserRoundSearch, bg: palette.yellowSoft, fg: '#ab8737', route: { sectionId: 'hr', tabId: 'sub-dispatch' } },
+              { title: 'Dismissal change requested', meta: '1 student · Awaiting approval', icon: BusFront, bg: palette.blueSoft, fg: palette.blue, route: { sectionId: 'transportation', tabId: 'dismissal' } },
+            ].map(({ title: alertTitle, meta, icon: AlertIcon, bg, fg, route: alertRoute }, index, list) => <Pressable key={alertTitle} onPress={() => { setAlertsOpen(false); go(alertRoute); }} style={[styles.alertModalItem, index === list.length - 1 && { borderBottomWidth: 0 }]}>
+              <View style={[styles.attentionIcon, { backgroundColor: bg }]}><AlertIcon size={17} color={fg} /></View>
+              <View style={{ flex: 1 }}><Text style={styles.attentionTitle}>{alertTitle}</Text><Text style={styles.attentionMeta}>{meta}</Text></View><ChevronRight size={15} color="#9ba59d" />
+            </Pressable>)}
           </View>
         </View> : null}
 
@@ -517,6 +486,17 @@ function App() {
     </SafeAreaView>
   );
 }
+
+const navStyles = StyleSheet.create({
+  sidebarScroll: { flexGrow: 1, paddingBottom: 4 },
+  navItem: { height: 36, borderRadius: 5, flexDirection: 'row', alignItems: 'center', gap: 11, paddingHorizontal: 10, marginBottom: 2 },
+  hubGroup: { marginTop: 16 },
+  hubLabel: { color: '#84988a', fontSize: 9, fontWeight: '700', letterSpacing: 1.1, marginBottom: 7, marginLeft: 7, marginTop: 4 },
+  hubRule: { height: 1, backgroundColor: '#3c5447', marginVertical: 9, marginHorizontal: 6 },
+  crumbs: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', flexWrap: 'nowrap', overflow: 'hidden' },
+  crumbItem: { flexDirection: 'row', alignItems: 'center', gap: 5, marginRight: 5, flexShrink: 1, minWidth: 0 },
+  crumbLink: { color: '#5d6b62', textDecorationLine: 'underline', textDecorationColor: '#cfd6cf' } as any,
+});
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: palette.canvas }, appShell: { flex: 1, flexDirection: 'row', backgroundColor: palette.canvas },

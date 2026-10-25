@@ -13,17 +13,36 @@ Use `npm start` to open the Expo developer menu for web, iOS, or Android.
 
 ## Current slice
 
-The first screen is a responsive district operations dashboard with sample attendance, school pulse, staffing, and safety data. Its collapsible sidebar provides seven pillar destinations; the horizontal hub header filters those destinations by role-based operational hub. Pillar 1 includes a Planbook-inspired lesson planner with week/day/month/class views, standards coverage, schedule adjustments, a substitute packet preview, and the existing IEP workspace. Pillar 2 includes a three-tier emergency command center with student/staff accountability, room filtering, event history, and roster export. Pillar 3 includes K–12 tier-aware scheduling previews for elementary homerooms/rotations/flex groups, middle-school pods/exploratories/WIN blocks, and high-school course requests/conflict matching/credit audit/arena selection, plus student directory and kiosk workflows. Pillar 4 includes behavior points, group awards, minor-ODR drafts, a token store, and a timed classroom auction. Pillar 5 includes classroom, school, and district feeds, private parent/staff/office message threads, masked SMS and caller-ID previews, and an emergency broadcast composer. The SIS also has a privacy workspace for directory opt-outs, LEI override previews, record-request deadlines, and retention-rule drafts. All records are illustrative; sync, notifications, 911 dispatch, publishing, meal/POS dispatch, PBIS ledger settlement, calls, claims, signatures, and substitute portal delivery remain local demo interactions.
+The first screen is a responsive district operations dashboard with sample attendance, school pulse, staffing, and safety data. Its collapsible sidebar groups twelve sections under three role-based hubs, and each section has an overview page plus a sub-nav of its pages (see Site structure). Pillar 1 includes a Planbook-inspired lesson planner with week/day/month/class views, standards coverage, schedule adjustments, a substitute packet preview, and the existing IEP workspace. Pillar 2 includes a three-tier emergency command center with student/staff accountability, room filtering, event history, and roster export. Pillar 3 includes K–12 tier-aware scheduling previews for elementary homerooms/rotations/flex groups, middle-school pods/exploratories/WIN blocks, and high-school course requests/conflict matching/credit audit/arena selection, plus student directory and kiosk workflows. Pillar 4 includes behavior points, group awards, minor-ODR drafts, a token store, and a timed classroom auction. Pillar 5 includes classroom, school, and district feeds, private parent/staff/office message threads, masked SMS and caller-ID previews, and an emergency broadcast composer. The SIS also has a privacy workspace for directory opt-outs, LEI override previews, record-request deadlines, and retention-rule drafts. All records are illustrative; sync, notifications, 911 dispatch, publishing, meal/POS dispatch, PBIS ledger settlement, calls, claims, signatures, and substitute portal delivery remain local demo interactions.
 
-## Hub and pillar map
+## Site structure
 
-| Operational hub | Pillars |
+The web app is broken into three levels, and every level has its own URL (hash routes work on any static host):
+
+| URL | Shows |
 | --- | --- |
-| Classroom Hub | 1. LMS & Instruction; 5. Communication & Community |
-| Safety & Behavior Hub | 2. Safety & Security; 4. Behavior & MTSS Interventions |
-| District Operations Hub | 3. Operations & Transportation; 5. Communication & Community; 6. District Admin & Finance; 7. Human Resources & Payroll |
+| `#/` | District home: today's metrics plus a platform map of every hub, section, and page |
+| `#/<section>` | Section overview: each page's purpose, status, capabilities, who uses it, and its Supabase tables |
+| `#/<section>/<page>` | The page itself: an interactive demo workspace, or a blueprint if it is not built yet |
 
-Pillar 5 is intentionally shared between classroom and district workflows. Hubs are role-based views over shared district domains, not separate databases.
+The site map lives in `Layout.tsx` (hubs → sections → pages, with role filtering and page status). Routing is in `lib/routing.ts`; section overviews, blueprints, and the home platform map are in `SiteMapPages.tsx`. Workspaces that already had internal tab bars (Special Ed, Behavior, SIS, Kiosk, Scheduling) accept a route-controlled `tab` so each view is its own page.
+
+| Hub | Section | Pages (● demo · ○ planned) |
+| --- | --- | --- |
+| Classroom | Instruction | ● Daily Stream · ● Lesson Planner · ● Seating Charts · ○ Rosters & Sync |
+| Classroom | Grades & Portfolios | ● Mastery Gradebook · ● Self-Reporting · ● Portfolios · ○ Report Cards |
+| Classroom | Special Education | ● IEP & Timeline · ● SMART Goals · ● Accommodations · ● Service Log · ● Parent Consent |
+| Classroom | Communication | ● Community Feed · ● Direct Messages · ● Masked Calling · ● Emergency Broadcasts · ○ Website CMS |
+| Safety & Behavior | Safety | ● Front Office Kiosk · ● Crisis Alerts · ● Accountability Matrix · ● Visitor Screening · ● Reunification · ○ Incident Reports |
+| Safety & Behavior | Behavior & MTSS | ● PBIS Points · ● Behavior Categories · ● Classroom Store · ● Live Auction · ○ Mood Meter · ○ MTSS Interventions · ○ Early Warning |
+| Operations | Students & SIS | ● Student Directory · ● Registration · ● Door Kiosk Attendance · ● Cafeteria Prep |
+| Operations | Scheduling | ● Elementary · ● Middle School · ● High School · ○ District Calendar |
+| Operations | Transportation & Nutrition | ○ Bus Routes · ○ Dismissal Changes · ○ Cafeteria POS · ○ Family Lunch Accounts |
+| Operations | Finance | ○ Fund Budgets · ○ Requisitions & POs · ○ Receipt OCR · ○ Student Fees |
+| Operations | HR & Payroll | ○ Timecards · ○ Substitute Dispatch · ○ Leave Requests · ○ Credentials · ○ Payroll Export |
+| Operations | Compliance | ● Privacy & Records · ● State Reporting · ○ Audit Log · ○ Roles & Access |
+
+Hubs are role-based views over shared district domains, not separate databases. To add a page, add it to its section in `Layout.tsx`; it appears in the sidebar, sub-nav, overview, and home map automatically, and renders as a blueprint until a workspace is mapped in `App.tsx`.
 
 ## Masked voice gateway
 

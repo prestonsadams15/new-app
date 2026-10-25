@@ -43,7 +43,7 @@ function FeedLabel({ children }: { children: React.ReactNode }) {
   return <Text style={styles.feedLabel}>{children}</Text>;
 }
 
-function CommunityFeed({ narrow }: { narrow: boolean }) {
+export function CommunityFeed({ narrow }: { narrow: boolean }) {
   const [scope, setScope] = useState<FeedScope>('Classroom');
   const [posts, setPosts] = useState(communityPosts);
   const [composerOpen, setComposerOpen] = useState(false);

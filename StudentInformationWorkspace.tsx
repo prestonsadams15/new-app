@@ -24,6 +24,7 @@ import { K12SchedulingEngine } from './K12SchedulingEngine';
 import { PrivacyComplianceWorkspace } from './PrivacyComplianceWorkspace';
 
 type Tab = 'Directory' | 'Registration' | 'Scheduling' | 'Compliance' | 'Privacy & records' | 'Door kiosk';
+export type SisTab = Tab;
 type RoleView = 'Teacher' | 'Office';
 type SisStudent = {
   id: string;
@@ -63,8 +64,10 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
   return <Text style={styles.eyebrow}>{children}</Text>;
 }
 
-export function StudentInformationWorkspace({ narrow }: { narrow: boolean }) {
-  const [tab, setTab] = useState<Tab>('Directory');
+export function StudentInformationWorkspace({ narrow, tab: routeTab, onTabChange }: { narrow: boolean; tab?: SisTab; onTabChange?: (tab: SisTab) => void }) {
+  const [localTab, setLocalTab] = useState<Tab>(routeTab ?? 'Directory');
+  const tab = routeTab ?? localTab;
+  const setTab = (next: Tab) => { setLocalTab(next); onTabChange?.(next); };
   const [role, setRole] = useState<RoleView>('Office');
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState('10042');
@@ -108,7 +111,7 @@ export function StudentInformationWorkspace({ narrow }: { narrow: boolean }) {
   return (
     <View style={styles.workspace}>
       <View style={styles.workspaceHeader}><View style={styles.headerIcon}><GraduationCap size={17} color={colors.forest} /></View><View style={{ flex: 1 }}><Text style={styles.workspaceTitle}>Student information system</Text><Text style={styles.workspaceSubtitle}>Evergreen Elementary · Operations & transportation</Text></View><View style={styles.sampleTag}><Text style={styles.sampleTagText}>SAMPLE RECORDS</Text></View></View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>{tabs.map((item) => <Pressable key={item} accessibilityRole="tab" accessibilityState={{ selected: tab === item }} onPress={() => { setTab(item); setNotice(''); }} style={[styles.tab, tab === item && styles.tabActive]}><Text style={[styles.tabText, tab === item && styles.tabTextActive]}>{item}</Text></Pressable>)}</ScrollView>
+      {routeTab ? null : <><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>{tabs.map((item) => <Pressable key={item} accessibilityRole="tab" accessibilityState={{ selected: tab === item }} onPress={() => { setTab(item); setNotice(''); }} style={[styles.tab, tab === item && styles.tabActive]}><Text style={[styles.tabText, tab === item && styles.tabTextActive]}>{item}</Text></Pressable>)}</ScrollView></>}
       {notice ? <View style={styles.notice}><Text style={styles.noticeText}>{notice}</Text></View> : null}
 
       {tab === 'Directory' ? <View style={[styles.directoryLayout, narrow && styles.directoryLayoutNarrow]}>
