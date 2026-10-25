@@ -21,6 +21,7 @@ import {
 } from 'lucide-react-native';
 
 type Tab = 'Points' | 'Categories' | 'Class store' | 'Live auction';
+export type BehaviorTab = Tab;
 type Student = { id: string; name: string; grade: string; room: string; initials: string; tokens: number };
 type Category = { id: string; title: string; points: number; tone: 'green' | 'blue' | 'yellow' | 'red'; icon: string; flag?: boolean; custom?: boolean };
 type StoreItem = { id: string; title: string; tokenCost: number; remaining: number };
@@ -75,8 +76,10 @@ function Label({ children }: { children: React.ReactNode }) {
   return <Text style={styles.label}>{children}</Text>;
 }
 
-export function BehaviorRewardsWorkspace({ narrow }: { narrow: boolean }) {
-  const [tab, setTab] = useState<Tab>('Points');
+export function BehaviorRewardsWorkspace({ narrow, tab: routeTab, onTabChange }: { narrow: boolean; tab?: BehaviorTab; onTabChange?: (tab: BehaviorTab) => void }) {
+  const [localTab, setLocalTab] = useState<Tab>(routeTab ?? 'Points');
+  const tab = routeTab ?? localTab;
+  const setTab = (next: Tab) => { setLocalTab(next); onTabChange?.(next); };
   const [students, setStudents] = useState(seedStudents);
   const [selectedIds, setSelectedIds] = useState<string[]>(['maya']);
   const [categories, setCategories] = useState(districtCategories);
@@ -294,7 +297,7 @@ export function BehaviorRewardsWorkspace({ narrow }: { narrow: boolean }) {
   return (
     <View style={styles.workspace}>
       <View style={styles.workspaceHeader}><View style={styles.headerIcon}><Award size={17} color={colors.forest} /></View><View style={{ flex: 1 }}><Text style={styles.workspaceTitle}>Classroom rewards</Text><Text style={styles.workspaceSubtitle}>Evergreen Elementary · Room 12 · PBIS wallet</Text></View><View style={styles.sampleBadge}><Text style={styles.sampleBadgeText}>SAMPLE LEDGER</Text></View></View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>{tabs.map((item) => <Pressable key={item} accessibilityRole="tab" accessibilityState={{ selected: tab === item }} onPress={() => { setTab(item); setNotice(''); }} style={[styles.tab, tab === item && styles.tabActive]}><Text style={[styles.tabText, tab === item && styles.tabTextActive]}>{item}</Text></Pressable>)}</ScrollView>
+      {routeTab ? null : <><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>{tabs.map((item) => <Pressable key={item} accessibilityRole="tab" accessibilityState={{ selected: tab === item }} onPress={() => { setTab(item); setNotice(''); }} style={[styles.tab, tab === item && styles.tabActive]}><Text style={[styles.tabText, tab === item && styles.tabTextActive]}>{item}</Text></Pressable>)}</ScrollView></>}
       {notice ? <View style={styles.notice}><Text style={styles.noticeText}>{notice}</Text></View> : null}
 
       {tab === 'Points' ? <View style={[styles.pointsLayout, narrow && styles.pointsLayoutNarrow]}>

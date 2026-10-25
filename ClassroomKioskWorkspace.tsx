@@ -19,6 +19,7 @@ import {
 } from 'lucide-react-native';
 
 type ViewTab = 'Door kiosk' | 'Cafeteria prep' | 'Office attendance';
+export type KioskViewTab = ViewTab;
 type IdentifyMode = 'Photo / name' | 'Personal icon' | 'QR badge' | '4-digit PIN';
 type Meal = 'Hot lunch' | 'Cold lunch' | 'From home';
 type Attendance = 'Present' | 'Tardy · excused' | 'Tardy · unexcused' | 'Absent · unaccounted';
@@ -70,8 +71,10 @@ const initialCounts: Record<Meal, number> = { 'Hot lunch': 342, 'Cold lunch': 88
 
 const formatMinute = (date: Date) => date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
-export function ClassroomKioskWorkspace({ narrow }: { narrow: boolean }) {
-  const [tab, setTab] = useState<ViewTab>('Door kiosk');
+export function ClassroomKioskWorkspace({ narrow, tab: routeTab, onTabChange }: { narrow: boolean; tab?: KioskViewTab; onTabChange?: (tab: KioskViewTab) => void }) {
+  const [localTab, setLocalTab] = useState<ViewTab>(routeTab ?? 'Door kiosk');
+  const tab = routeTab ?? localTab;
+  const setTab = (next: ViewTab) => { setLocalTab(next); onTabChange?.(next); };
   const [mode, setMode] = useState<IdentifyMode>('Photo / name');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [attendance, setAttendance] = useState(initialAttendance);
@@ -162,9 +165,9 @@ export function ClassroomKioskWorkspace({ narrow }: { narrow: boolean }) {
         <View style={styles.livePill}><View style={styles.livePillDot} /><Text style={styles.livePillText}>SAMPLE DATA</Text></View>
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.viewTabs}>
+      {routeTab ? null : <><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.viewTabs}>
         {tabs.map((item) => <Pressable key={item} accessibilityRole="tab" accessibilityState={{ selected: tab === item }} onPress={() => { setTab(item); setNotice(''); }} style={[styles.viewTab, tab === item && styles.viewTabSelected]}><Text style={[styles.viewTabText, tab === item && styles.viewTabTextSelected]}>{item}</Text></Pressable>)}
-      </ScrollView>
+      </ScrollView></>}
 
       {notice ? <View style={styles.notice}><Text style={styles.noticeText}>{notice}</Text></View> : null}
 

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react-native';
 
 type Tier = 'elementary' | 'middle' | 'high';
+export type SchedulingTier = Tier;
 type Track = 1 | 2 | 3;
 type Pupil = { id: string; name: string; grade: string; reading: Track; math: Track; behavior: Track; gender: string; iep: boolean; plan504: boolean; el: boolean; gt: boolean; avoid?: string[] };
 type Course = { id: string; title: string; credits: number; subject: string; periods: number[]; required: boolean };
@@ -73,8 +74,8 @@ function levelLabel(tier: Tier) {
   return tier === 'elementary' ? 'Elementary · K–5' : tier === 'middle' ? 'Middle school · 6–8' : 'High school · 9–12';
 }
 
-export function K12SchedulingEngine({ narrow }: { narrow: boolean }) {
-  const [grade, setGrade] = useState('5');
+export function K12SchedulingEngine({ narrow, tier: routeTab }: { narrow: boolean; tier?: SchedulingTier }) {
+  const [grade, setGrade] = useState(routeTab === 'middle' ? '7' : routeTab === 'high' ? '9' : '5');
   const [targetClassSize, setTargetClassSize] = useState('24');
   const [maxIepPercent, setMaxIepPercent] = useState('20');
   const [sectionCount, setSectionCount] = useState('3');
@@ -207,7 +208,7 @@ export function K12SchedulingEngine({ narrow }: { narrow: boolean }) {
   return (
     <View style={styles.workspace}>
       <View style={styles.header}><View style={styles.headerIcon}><GraduationCap size={16} color={colors.forest} /></View><View style={{ flex: 1 }}><Text style={styles.headerTitle}>K–12 scheduling engine</Text><Text style={styles.headerSubtitle}>Tier-aware roster and schedule planning · Preview mode</Text></View><View style={styles.modelBadge}><Text style={styles.modelBadgeText}>{levelLabel(tier).toUpperCase()}</Text></View></View>
-      <View style={styles.tierTabs}>{tabs.map((item) => <Pressable key={item.value} onPress={() => { const nextGrade = item.value === 'elementary' ? '5' : item.value === 'middle' ? '7' : '9'; setGrade(nextGrade); setNotice(''); }} style={[styles.tierTab, tier === item.value && styles.tierTabSelected]}><Text style={[styles.tierTabText, tier === item.value && styles.tierTabTextSelected]}>{item.label}</Text></Pressable>)}</View>
+      {routeTab ? null : <View style={styles.tierTabs}>{tabs.map((item) => <Pressable key={item.value} onPress={() => { const nextGrade = item.value === 'elementary' ? '5' : item.value === 'middle' ? '7' : '9'; setGrade(nextGrade); setNotice(''); }} style={[styles.tierTab, tier === item.value && styles.tierTabSelected]}><Text style={[styles.tierTabText, tier === item.value && styles.tierTabTextSelected]}>{item.label}</Text></Pressable>)}</View>}
       {notice ? <View style={styles.notice}><Text style={styles.noticeText}>{notice}</Text></View> : null}
 
       {tier === 'elementary' ? <View style={styles.panel}>

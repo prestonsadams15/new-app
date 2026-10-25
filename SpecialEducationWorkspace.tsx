@@ -21,6 +21,7 @@ import {
 } from 'lucide-react-native';
 
 type Section = 'IEP & timeline' | 'SMART goals' | 'Accommodations' | 'Service log' | 'Parent consent';
+export type SpecialEdSection = Section;
 type Goal = { id: number; timeframe: string; behavior: string; condition: string; criterion: string; data: number[] };
 type ServiceEntry = { id: number; service: string; minutes: number; provider: string; date: string };
 
@@ -55,8 +56,10 @@ function WorkspaceLabel({ children }: { children: React.ReactNode }) {
   return <Text style={styles.label}>{children}</Text>;
 }
 
-export function SpecialEducationWorkspace({ narrow }: { narrow: boolean }) {
-  const [section, setSection] = useState<Section>('IEP & timeline');
+export function SpecialEducationWorkspace({ narrow, tab: routeTab, onTabChange }: { narrow: boolean; tab?: SpecialEdSection; onTabChange?: (tab: SpecialEdSection) => void }) {
+  const [localSection, setLocalSection] = useState<Section>(routeTab ?? 'IEP & timeline');
+  const section = routeTab ?? localSection;
+  const setSection = (next: Section) => { setLocalSection(next); onTabChange?.(next); };
   const [stateTemplate, setStateTemplate] = useState<'Utah · USBE' | 'District template'>('Utah · USBE');
   const [timeframeIndex, setTimeframeIndex] = useState(0);
   const timeframeOptions = ['By the end of the IEP year', 'Within 36 instructional weeks', 'By the annual review date'];
@@ -138,14 +141,14 @@ export function SpecialEducationWorkspace({ narrow }: { narrow: boolean }) {
         <View style={styles.draftStatus}><View style={styles.draftDot} /><Text style={styles.draftStatusText}>DRAFT</Text></View>
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sectionTabs}>
+      {routeTab ? null : <><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sectionTabs}>
         {sections.map((item) => {
           const selected = section === item;
           return <Pressable key={item} accessibilityRole="tab" accessibilityState={{ selected }} onPress={() => { setSection(item); setNotice(''); }} style={[styles.sectionTab, selected && styles.sectionTabSelected]}>
             <Text style={[styles.sectionTabText, selected && styles.sectionTabTextSelected]}>{item}</Text>
           </Pressable>;
         })}
-      </ScrollView>
+      </ScrollView></>}
 
       {notice ? <View style={styles.notice}><Text style={styles.noticeText}>{notice}</Text></View> : null}
 
